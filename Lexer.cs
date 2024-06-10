@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Transactions;
 
 namespace SimpleCompiler;
 
@@ -144,6 +146,41 @@ internal class Lexer
             token = new(Source[startingPosition..currentPosition], Token.TokenType.STRING); //range operator used
         }
 
+        //numbers
+        else if (Char.IsNumber(currentChar))
+        {
+            startingPosition = currentPosition;
+            while (Char.IsNumber(Peek()))
+                NextCharacter();
+            if (Peek() == '.')
+            {
+                NextCharacter();
+                if (!Char.IsNumber(Peek()))
+                    Abort("Illegal Character in NUMBER");
+                while (Char.IsNumber(Peek()))
+                    NextCharacter();
+            }
+            token = new(Source[startingPosition..currentPosition], Token.TokenType.NUMBER);
+        }
+
+        else if( Char.IsLetter(currentChar) )
+        {
+            startingPosition = currentPosition;
+            while (Char.IsLetterOrDigit(Peek()))
+                NextCharacter();
+            
+            string tokenText = Source[startingPosition..(currentPosition + 1)];
+            string? keyWord = CheckIfKeyword(tokenText);
+
+            if (String.IsNullOrEmpty(keyWord))
+                token = new(tokenText, Token.TokenType.IDENT);
+            else
+            {
+                Enum.TryParse(keyWord, false, out Token.TokenType type);
+                token = new(tokenText, type);
+            }
+        }
+
         //new line
         else if (currentChar == '\n')
         {
@@ -165,6 +202,16 @@ internal class Lexer
         
         NextCharacter();
         return token;
+    }
+
+    private static string? CheckIfKeyword(string s)
+    {
+        foreach (var tokenType in Enum.GetValues(typeof(Token.TokenType)))
+        {
+            if (String.Equals(tokenType.ToString(), s) && (int)tokenType >= 100 && (int)tokenType < 200)
+                return tokenType.ToString();
+        }
+        return String.Empty;
     }
 
     private void SkipComments()
