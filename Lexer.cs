@@ -160,7 +160,7 @@ internal class Lexer
                 while (Char.IsNumber(Peek()))
                     NextCharacter();
             }
-            token = new(Source[startingPosition..currentPosition], Token.TokenType.NUMBER);
+            token = new(Source[startingPosition..(currentPosition + 1)], Token.TokenType.NUMBER);
         }
 
         else if( Char.IsLetter(currentChar) )
