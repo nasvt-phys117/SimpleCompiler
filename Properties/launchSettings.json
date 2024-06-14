@@ -1,8 +1,7 @@
 {
   "profiles": {
     "SimpleCompiler": {
-      "commandName": "Project",
-      "commandLineArgs": "source.tiny.txt"
+      "commandName": "Project"
     }
   }
 }

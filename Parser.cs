@@ -15,17 +15,19 @@ namespace SimpleCompiler
         private Token? peekToken;
 
         private readonly Lexer _Lexer;
+        private readonly Emitter _emitter;
 
         private HashSet<string> symbols = [];
         private HashSet<string> labelsDeclared = [];
         private HashSet<string> labelsGotoed = [];
 
-        public Parser(Lexer lexer)
+        public Parser(Lexer lexer, Emitter emitter)
         {
-            _Lexer = lexer;
-            
-            currentToken = null;
-            peekToken = null;
+            _Lexer    = lexer;
+            _emitter  = emitter;
+
+            currentToken    = null;
+            peekToken       = null;
             NextToken();
             NextToken();
         }
