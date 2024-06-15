@@ -5,6 +5,7 @@ using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
 using static SimpleCompiler.Lexer;
+using static SimpleCompiler.Emitter;
 
 
 namespace SimpleCompiler
@@ -60,7 +61,11 @@ namespace SimpleCompiler
 
         public void Program()
         {
-            Console.WriteLine("PROGRAM");
+            //Console.WriteLine("PROGRAM");
+
+            _emitter.HeaderLine("#include<stdio.h>");
+            _emitter.HeaderLine("int main(void){");
+
 
             while (CheckToken(Token.TokenType.NEWLINE))
                 NextToken();
@@ -69,6 +74,9 @@ namespace SimpleCompiler
             {
                 Statement();
             }
+
+            _emitter.EmitLine("return 0;");
+            _emitter.EmitLine("}");
 
             foreach (var label in labelsGotoed)
             {
@@ -79,7 +87,7 @@ namespace SimpleCompiler
 
         void NewLine()
         {
-            Console.WriteLine("NEWLINE");
+            //Console.WriteLine("NEWLINE");
             Match(Token.TokenType.NEWLINE);
             while (CheckToken(Token.TokenType.NEWLINE))
                 NextToken();
@@ -90,47 +98,64 @@ namespace SimpleCompiler
             //PRINT
             if (CheckToken(Token.TokenType.PRINT))
             {
-                Console.WriteLine("STATEMENT-PRINT");
+                //Console.WriteLine("STATEMENT-PRINT");
                 NextToken();
 
                 if (CheckToken(Token.TokenType.STRING))
+                {
+                    _emitter.EmitLine($"printf(\"{currentToken.TokenText}\\n\");");
                     NextToken();
+                }
                 else
+                {
+                    _emitter.Emit("printf(\"%" + ".2f\\n\",(float)(");
                     ProgramExpression();
+                    _emitter.EmitLine("));");
+                }
             }
 
+            //IF
             else if (CheckToken(Token.TokenType.IF))
             {
-                Console.WriteLine("STATEMENT-IF");
+                //Console.WriteLine("STATEMENT-IF");
                 NextToken();
+                _emitter.Emit("if(");
                 ProgramComparison();
 
                 Match(Token.TokenType.THEN);
                 NewLine();
+                _emitter.EmitLine("){");
 
                 while (!CheckToken(Token.TokenType.ENDIF))
                     Statement();
 
                 Match(Token.TokenType.ENDIF);
+                _emitter.EmitLine("}");
             }
+            
+            //WHILE
             else if (CheckToken(Token.TokenType.WHILE))
             {
-                Console.WriteLine("STATEMENT-WHILE");
+                //Console.WriteLine("STATEMENT-WHILE");
                 NextToken();
+                _emitter.Emit("while(");
                 ProgramComparison();
 
                 Match(Token.TokenType.REPEAT);
                 NewLine();
+                _emitter.EmitLine("){");
 
                 while(!CheckToken(Token.TokenType.ENDWHILE))
                     Statement();
                 
                 Match(Token.TokenType.ENDWHILE);
+                _emitter.EmitLine("}");
             }
 
+            //LABEL
             else if (CheckToken(Token.TokenType.LABEL))
             {
-                Console.WriteLine("STATEMENT-LABEL");
+                //Console.WriteLine("STATEMENT-LABEL");
                 NextToken();
 
                 //Labels
@@ -138,38 +163,56 @@ namespace SimpleCompiler
                     Abort($"Label already exists: {currentToken.TokenText}");
                 labelsDeclared.Add(currentToken.TokenText);
 
+                _emitter.EmitLine($"{currentToken.TokenText}:");
                 Match(Token.TokenType.IDENT);
             }
 
+            //GOTO
             else if (CheckToken(Token.TokenType.GOTO))
             {
-                Console.WriteLine("STATEMENT-GOTO");
+                //Console.WriteLine("STATEMENT-GOTO");
                 NextToken();
                 labelsGotoed.Add(currentToken.TokenText);
 
+                _emitter.EmitLine($"goto {currentToken.TokenText};");
                 Match(Token.TokenType.IDENT);
             }
 
+            //LET
             else if (CheckToken(Token.TokenType.LET))
             {
-                Console.WriteLine("STATEMENT-LET");
+                //Console.WriteLine("STATEMENT-LET");
                 NextToken();
 
                 if (!symbols.Contains(currentToken.TokenText))
+                {
                     symbols.Add(currentToken.TokenText);
-
+                    _emitter.HeaderLine($"float {currentToken.TokenText};");
+                }
+                _emitter.Emit($"{currentToken.TokenText} = ");
                 Match(Token.TokenType.IDENT);
                 Match(Token.TokenType.EQ);
 
                 ProgramExpression();
+                _emitter.EmitLine(";");
             }
+
+            //INPUT (bad implementation)
             else if (CheckToken(Token.TokenType.INPUT))
             {
-                Console.WriteLine("STATEMENT-INPUT");
+                //Console.WriteLine("STATEMENT-INPUT");
                 NextToken();
 
                 if (!symbols.Contains(currentToken.TokenText))
+                {
                     symbols.Add(currentToken.TokenText);
+                    _emitter.HeaderLine($"float {currentToken.TokenText};");
+                }
+                _emitter.EmitLine("if(0==scanf(\"%"+"f\",&" + currentToken.TokenText+")) {");
+                _emitter.EmitLine($"{currentToken.TokenText} = 0;");
+                _emitter.Emit($"scanf(\"%");
+                _emitter.EmitLine("*s\");");
+                _emitter.EmitLine("}");
 
                 Match(Token.TokenType.IDENT);
             }
@@ -180,12 +223,18 @@ namespace SimpleCompiler
 
         private void ProgramComparison()
         {
-            Console.WriteLine("COMPARISON");
+            //Console.WriteLine("COMPARISON");
 
             ProgramExpression();
 
             if (IsComparisonOperator())
             {
+                if (currentToken.TokenText is not null)
+                    _emitter.Emit(currentToken.TokenText);
+                else
+                {
+                    _emitter.Emit(currentToken.TokenChar.ToString());
+                }
                 NextToken();
                 ProgramExpression();
             }
@@ -194,6 +243,12 @@ namespace SimpleCompiler
 
             while (IsComparisonOperator())
             {
+                if (currentToken.TokenText is not null)
+                    _emitter.Emit(currentToken.TokenText);
+                else
+                {
+                    _emitter.Emit(currentToken.TokenChar.ToString());
+                }
                 NextToken();
                 ProgramExpression();
             }
@@ -209,11 +264,12 @@ namespace SimpleCompiler
 
         private void ProgramExpression()
         {
-            Console.WriteLine("EXPRESSION");
+            //Console.WriteLine("EXPRESSION");
             ProgramTerm();
 
             while (CheckToken(Token.TokenType.PLUS) || CheckToken(Token.TokenType.MINUS))
             {
+                _emitter.Emit(currentToken.TokenChar.ToString());
                 NextToken();
                 ProgramTerm();
             }
@@ -221,12 +277,13 @@ namespace SimpleCompiler
 
         private void ProgramTerm()
         {
-            Console.WriteLine("TERM");
+            //Console.WriteLine("TERM");
 
             ProgramUnary();
             
             while ( CheckToken(Token.TokenType.ASTERISK) || CheckToken(Token.TokenType.SLASH) )
             {
+                _emitter.Emit(currentToken.TokenChar.ToString());
                 NextToken();
                 ProgramUnary();
             }
@@ -237,7 +294,10 @@ namespace SimpleCompiler
             Console.WriteLine("UNARY");
 
             if (CheckToken(Token.TokenType.PLUS) || CheckToken(Token.TokenType.MINUS))
+            {
+                _emitter.Emit(currentToken.TokenChar.ToString());
                 NextToken();
+            }
             ProgramPrimary();
         }
 
@@ -246,12 +306,16 @@ namespace SimpleCompiler
             Console.WriteLine($"PRIMARY ({currentToken?.TokenText})");
 
             if (CheckToken(Token.TokenType.NUMBER))
+            {
+                _emitter.Emit(currentToken.TokenText);
                 NextToken();
+            }
 
             else if (CheckToken(Token.TokenType.IDENT))
             {
                 if (!symbols.Contains(currentToken.TokenText))
                     Abort($"Referencing variable before assignment: {currentToken.TokenText}");
+                _emitter.Emit(currentToken.TokenText);
                 NextToken();
             }
             else

@@ -6,30 +6,23 @@ using System.Threading.Tasks;
 
 namespace SimpleCompiler
 {
-    internal class Emitter
+    internal class Emitter(string fileName)
     {
-        private string _fileName;
-        private string _code;
-        private string _header;
+        private string _fileName = fileName;
+        private string _code = string.Empty;
+        private string _header = string.Empty;
 
-        public Emitter(string fileName)
-        {
-            _fileName = fileName;
-            _code = string.Empty;
-            _header = string.Empty;
-        }
-
-        void Emit(string code)
+        public void Emit(string code)
         {
             _code += code;
         }
 
-        void EmitLine(string code)
+        public void EmitLine(string code)
         {
             _code += code + '\n';
         }
 
-        void HeaderLine(string code)
+        public void HeaderLine(string code)
         {
             _header += code + '\n';
         }
